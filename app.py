@@ -1,20 +1,18 @@
 import streamlit as st
 import pandas as pd
-from operator import index
-from pycaret.regression import setup, compare_models, pull, save_model, load_model
-
-from pycaret.classification import setup, compare_models, pull, save_model
 import os 
-from ydata_profiling import ProfileReport
-from ydata_profiling import ProfileReport
 import streamlit.components.v1 as components
 from pycaret import classification as clf
 from pycaret import regression as reg
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 
 
-if os.path.exists('./dataset.csv'): 
-    df = pd.read_csv('dataset.csv', index_col=None)
+# Load dataset safely
+df = None
+if os.path.exists("dataset.csv"):
+    df = pd.read_csv("dataset.csv")
 
 with st.sidebar:
     st.image("https://blog.reffascode.de/content/images/2018/08/ml-cover-1.jpg")
@@ -32,23 +30,62 @@ if choice == "Upload":
         st.dataframe(df)
 
 if choice == "Data Analysis":
-    st.title("Exploratory Data Analysis")
+    st.title("Data Analysis Dashboard")
 
-    if st.button("Generate Profiling Report"):
-        with st.spinner("Generating full report..."):
+    if df is None:
+        st.warning("Please upload dataset first")
+        st.stop()
 
-            
+    st.subheader("Dataset Preview")
+    st.dataframe(df.head())
 
-            profile = ProfileReport(df, explorative=True)
-            profile.to_file("report.html")
+    st.subheader("Shape of Dataset")
+    st.write(f"Rows: {df.shape[0]}, Columns: {df.shape[1]}")
 
-            with open("report.html", "r", encoding="utf-8") as f:
-                html = f.read()
-                components.html(html, height=800, scrolling=True)
+    st.subheader("Data Types")
+    st.dataframe(df.dtypes)
+
+    st.subheader("Missing Values")
+    missing = df.isnull().sum()
+    st.dataframe(missing[missing > 0])
+
+    st.subheader("Statistical Summary")
+    st.dataframe(df.describe())
+
+    # ---------- NUMERIC COLUMN VISUALS ----------
+    numeric_cols = df.select_dtypes(include=['int64','float64']).columns.tolist()
+
+    if numeric_cols:
+        st.subheader("Correlation Heatmap")
+       
+
+        fig, ax = plt.subplots(figsize=(8,5))
+        sns.heatmap(df[numeric_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
+        st.pyplot(fig)
+
+        st.subheader("Distribution Plot")
+        selected_col = st.selectbox("Choose column", numeric_cols)
+
+        fig2, ax2 = plt.subplots()
+        sns.histplot(df[selected_col], kde=True, ax=ax2)
+        st.pyplot(fig2)
+
+    # ---------- CATEGORICAL ----------
+    cat_cols = df.select_dtypes(include=['object']).columns.tolist()
+
+    if cat_cols:
+        st.subheader("Categorical Column Counts")
+        selected_cat = st.selectbox("Choose categorical column", cat_cols)
+
+        st.write(df[selected_cat].value_counts())
+
+        fig3, ax3 = plt.subplots()
+        df[selected_cat].value_counts().plot(kind='bar', ax=ax3)
+        st.pyplot(fig3)
 if choice == "ML":
     st.title("Machine Learning AutoML")
 
-    if 'df' not in locals():
+    if df is None or df.empty:
         st.warning("Please upload dataset first.")
         st.stop()
 
